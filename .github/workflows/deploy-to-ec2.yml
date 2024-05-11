@@ -1,0 +1,33 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+
+  build:
+    uses: ./.github/workflows/build-image.yml
+    with:
+      env: romme-travel
+    secrets: inherit
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Prepare EC2 secret key
+      id: privateKey
+      run: |
+        echo '-----BEGIN RSA PRIVATE KEY-----' >> private_key.pem
+        echo '${{ secrets.PROD_SERVER_KEY }}' >> private_key.pem
+        echo '-----END RSA PRIVATE KEY-----' >> private_key.pem
+        chmod 400 private_key.pem
+    - name: Deploy in EC2
+      run: |
+        sh ./deploy.sh \
+        ${{ secrets.EC2_USER }}@${{ secrets.EC2_PROD_HOST }} \
+        ${{ secrets.ECR_REGISTRY }} \
+        ${{ secrets.ECR_REGISTRY }}:romme-travel-latest
